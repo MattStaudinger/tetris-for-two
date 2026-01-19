@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dual-Zone Tetris</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="title">
+          <h1>Dual-Zone Tetris</h1>
+          <p>
+            Two players share a common zone. Clear lines, avoid topping out.
+          </p>
+        </div>
+        <div class="controls">
+          <button id="startBtn">Start</button>
+          <button id="pauseBtn" disabled>Pause</button>
+          <button id="restartBtn" disabled>Restart</button>
+          <label class="toggle">
+            <input type="checkbox" id="soundToggle" checked />
+            <span>Sound</span>
+          </label>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="panel">
+          <h2>Player 1</h2>
+          <div class="stats">
+            <div>Score: <span id="p1Score">0</span></div>
+            <div>Lines: <span id="p1Lines">0</span></div>
+          </div>
+          <div class="preview">
+            <span>Next</span>
+            <canvas id="p1Next" width="120" height="120"></canvas>
+          </div>
+          <div class="keys">
+            <h3>Keys</h3>
+            <p>Move: A / D</p>
+            <p>Rotate: W</p>
+            <p>Soft drop: S</p>
+            <p>Hard drop: Space</p>
+          </div>
+        </section>
+
+        <div class="game-column">
+          <div id="shiftBanner" class="shift-banner">
+            <div class="shift-banner-title">Shared Zone Shift</div>
+            <div class="shift-banner-row">
+              <span>Next shift in</span>
+              <strong id="shiftCountdown">30s</strong>
+            </div>
+            <div class="shift-banner-row">
+              <span>Points to next level</span>
+              <strong id="pointsToLevel">1000</strong>
+            </div>
+          </div>
+
+          <section class="game">
+            <canvas id="game" width="480" height="600"></canvas>
+            <div id="overlay" class="overlay hidden">
+              <div class="overlay-content">
+                <h2 id="overlayTitle">Paused</h2>
+                <p id="overlayText">Press Start to begin.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel">
+          <h2>Player 2</h2>
+          <div class="stats">
+            <div>Score: <span id="p2Score">0</span></div>
+            <div>Lines: <span id="p2Lines">0</span></div>
+          </div>
+          <div class="preview">
+            <span>Next</span>
+            <canvas id="p2Next" width="120" height="120"></canvas>
+          </div>
+          <div class="keys">
+            <h3>Keys</h3>
+            <p>Move: &larr; / &rarr;</p>
+            <p>Rotate: &uarr;</p>
+            <p>Soft drop: &darr;</p>
+            <p>Hard drop: Enter</p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>Level: <span id="level">1</span></div>
+        <div>Total Lines: <span id="totalLines">0</span></div>
+        <div>Shared Zone: columns <span id="sharedZone">7-10</span></div>
+        <div class="shift-control">
+          <span>Next shift: <span id="shiftTimer">30s</span></span>
+          <label>
+            Interval
+            <input
+              id="shiftInterval"
+              type="number"
+              min="10"
+              max="180"
+              step="5"
+              value="30"
+            />
+            s
+          </label>
+        </div>
+      </footer>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
