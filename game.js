@@ -5,12 +5,12 @@ const startBtn = document.getElementById("startBtn");
 const pauseBtn = document.getElementById("pauseBtn");
 const restartBtn = document.getElementById("restartBtn");
 const soundToggle = document.getElementById("soundToggle");
+const gameModeSelect = document.getElementById("gameMode");
 const playerCountSelect = document.getElementById("playerCount");
 const controlsBtn = document.getElementById("controlsBtn");
 const controlsModal = document.getElementById("controlsModal");
 const controlsClose = document.getElementById("controlsClose");
 const controlsList = document.getElementById("controlsList");
-const controlsDoc = document.getElementById("controlsDoc");
 const playersPanel = document.getElementById("playersPanel");
 const nextTray = document.getElementById("nextTray");
 const gameColumn = document.querySelector(".game-column");
@@ -18,6 +18,8 @@ const gameColumn = document.querySelector(".game-column");
 const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayText = document.getElementById("overlayText");
+const titleEl = document.getElementById("gameTitle");
+const subtitleEl = document.getElementById("gameSubtitle");
 
 const levelEl = document.getElementById("level");
 const totalLinesEl = document.getElementById("totalLines");
@@ -27,6 +29,7 @@ const shiftIntervalInput = document.getElementById("shiftInterval");
 const shiftBannerEl = document.getElementById("shiftBanner");
 const shiftCountdownEl = document.getElementById("shiftCountdown");
 const pointsToLevelEl = document.getElementById("pointsToLevel");
+const shiftControlEl = document.querySelector(".shift-control");
 
 const ROWS = 20;
 const MAX_BLOCK = 30;
@@ -50,7 +53,27 @@ const COLORS = {
   S: "#70e07b",
   T: "#b175ff",
   Z: "#ff6e6e",
+  B: "#ff3b3b",
 };
+
+const PLAYER_COLORS = [
+  "#7dd3fc",
+  "#fda4af",
+  "#fde68a",
+  "#86efac",
+  "#c4b5fd",
+  "#f9a8d4",
+  "#a7f3d0",
+  "#fcd34d",
+  "#93c5fd",
+  "#fca5a5",
+  "#ddd6fe",
+  "#6ee7b7",
+  "#f0abfc",
+  "#fda4af",
+  "#67e8f9",
+  "#fdba74",
+];
 
 const SHAPES = {
   I: [
@@ -88,9 +111,13 @@ const SHAPES = {
     [0, 1, 1],
     [0, 0, 0],
   ],
+  B: [[1]],
 };
 
-const PIECES = Object.keys(SHAPES);
+const PIECES = Object.keys(SHAPES).filter((piece) => piece !== "B");
+
+const bombSprite = new Image();
+bombSprite.src = "bomb_sprite.png";
 
 const audio = {
   ctx: null,
@@ -101,6 +128,7 @@ const state = {
   board: [],
   players: [],
   playerConfigs: [],
+  gameMode: "zoned",
   running: false,
   paused: false,
   lastTime: 0,
@@ -140,6 +168,17 @@ const KEY_GROUPS = [
   { left: "`", rotate: "§", right: "\u00B4" },
 ];
 
+const GAME_MODES = {
+  zoned: {
+    label: "Zoned Shift",
+    description: "Players have lanes with moving shared zones.",
+  },
+  chaos: {
+    label: "Chaos Arena",
+    description: "All players can drop pieces anywhere on the board.",
+  },
+};
+
 function initBoard() {
   state.board = Array.from({ length: state.rows }, () =>
     Array(state.cols).fill(0),
@@ -158,10 +197,22 @@ function createBag() {
   return shuffle([...PIECES]);
 }
 
+function drawFromChaosBag(player) {
+  if (player.bag.length === 0) {
+    player.bag = createBag();
+  }
+  if (Math.random() < 0.08) {
+    return "B";
+  }
+  return player.bag.pop();
+}
+
 function createPlayer(config, ui) {
   return {
     id: config.id,
+    color: config.color,
     zone: { min: 0, max: 0 },
+    spawnZone: { min: 0, max: 0 },
     score: 0,
     lines: 0,
     bag: createBag(),
@@ -190,6 +241,7 @@ function buildPlayerConfigs(playerCount) {
     configs.push({
       id: `p${i + 1}`,
       keys,
+      color: PLAYER_COLORS[i % PLAYER_COLORS.length],
     });
   }
   return configs;
@@ -271,27 +323,6 @@ function updateBlockSize() {
 }
 
 function buildControlsDocs(configs) {
-  if (controlsDoc) {
-    controlsDoc.innerHTML = "";
-    const title = document.createElement("h3");
-    title.textContent = "Controls";
-    const grid = document.createElement("div");
-    grid.className = "controls-grid";
-    configs.forEach((config, index) => {
-      const card = document.createElement("div");
-      card.className = "control-card";
-      card.innerHTML = `
-        <strong>Player ${index + 1}</strong>
-        <div>Left: ${config.keys.left.toUpperCase()}</div>
-        <div>Right: ${config.keys.right.toUpperCase()}</div>
-        <div>Rotate: ${config.keys.rotate.toUpperCase()}</div>
-        <div>Hard drop: hold ${config.keys.rotate.toUpperCase()} 1s</div>
-      `;
-      grid.appendChild(card);
-    });
-    controlsDoc.append(title, grid);
-  }
-
   if (controlsList) {
     controlsList.innerHTML = "";
     configs.forEach((config, index) => {
@@ -306,6 +337,25 @@ function buildControlsDocs(configs) {
       `;
       controlsList.appendChild(card);
     });
+  }
+}
+
+function applyModeUI() {
+  const mode = GAME_MODES[state.gameMode] || GAME_MODES.zoned;
+  if (titleEl) {
+    titleEl.textContent = "Multi-Tetris";
+  }
+  if (subtitleEl) {
+    subtitleEl.textContent = mode.description;
+  }
+  if (shiftBannerEl) {
+    shiftBannerEl.style.display = state.gameMode === "zoned" ? "grid" : "none";
+  }
+  if (shiftControlEl) {
+    shiftControlEl.style.display = state.gameMode === "zoned" ? "flex" : "none";
+  }
+  if (gameModeSelect) {
+    gameModeSelect.value = state.gameMode;
   }
 }
 
@@ -330,6 +380,14 @@ function updatePlayerZones() {
 }
 
 function applySharedZones() {
+  if (state.gameMode === "chaos") {
+    state.sharedZones = [];
+    state.players.forEach((player) => {
+      player.zone = { min: 0, max: state.cols - 1 };
+    });
+    updateSharedZoneLabel();
+    return;
+  }
   state.sharedZones.forEach((zone) => {
     zone.end = zone.start + COMMON_WIDTH - 1;
   });
@@ -349,7 +407,7 @@ function buildLayout(playerCount) {
   }
   state.cols = count * BASE_EXCLUSIVE_WIDTH + (count - 1) * COMMON_WIDTH;
   updateBlockSize();
-  state.sharedZones = buildSharedZones(count);
+  state.sharedZones = state.gameMode === "zoned" ? buildSharedZones(count) : [];
   const players = configs.map((config, index) => {
     const panelUi = buildPlayerPanel(index, config) || {};
     return createPlayer(config, panelUi);
@@ -361,11 +419,25 @@ function buildLayout(playerCount) {
     const trayUi = nextTrayUis[index] || {};
     player.ui = { ...player.ui, ...trayUi };
     const span = Math.min(4, state.cols);
-    const center = Math.floor((player.zone.min + player.zone.max) / 2) + 1;
+    const center =
+      state.gameMode === "zoned"
+        ? Math.floor((player.zone.min + player.zone.max) / 2) + 1
+        : Math.floor(((index + 0.5) * state.cols) / count) + 1;
     const start = Math.max(1, Math.min(state.cols - span + 1, center - 1));
     if (nextTrayUis[index]?.nextCanvas?.parentElement) {
       nextTrayUis[index].nextCanvas.parentElement.style.gridColumn =
         `${start} / span ${span}`;
+    }
+
+    if (state.gameMode === "zoned") {
+      player.spawnZone = { ...player.zone };
+    } else {
+      const segmentStart = Math.floor((index * state.cols) / count);
+      const segmentEnd = Math.floor(((index + 1) * state.cols) / count) - 1;
+      player.spawnZone = {
+        min: Math.max(0, segmentStart),
+        max: Math.max(0, segmentEnd),
+      };
     }
   });
   buildControlsDocs(configs);
@@ -373,7 +445,7 @@ function buildLayout(playerCount) {
 
 function updateSharedZoneLabel() {
   if (sharedZoneEl) {
-    if (state.sharedZones.length === 0) {
+    if (state.gameMode !== "zoned" || state.sharedZones.length === 0) {
       sharedZoneEl.textContent = "-";
       return;
     }
@@ -385,8 +457,21 @@ function updateSharedZoneLabel() {
 
 function updateShiftTimerLabel() {
   if (!shiftCountdownEl) return;
+  if (state.gameMode !== "zoned") {
+    shiftCountdownEl.textContent = "Off";
+    if (shiftTimerEl) {
+      shiftTimerEl.textContent = "Off";
+    }
+    if (shiftBannerEl) {
+      shiftBannerEl.classList.remove("urgent", "shifting");
+    }
+    return;
+  }
   if (state.shiftAnimation.active) {
     shiftCountdownEl.textContent = "Shifting";
+    if (shiftTimerEl) {
+      shiftTimerEl.textContent = "Shifting";
+    }
     if (shiftBannerEl) {
       shiftBannerEl.classList.add("shifting");
       shiftBannerEl.classList.remove("urgent");
@@ -398,6 +483,9 @@ function updateShiftTimerLabel() {
     Math.ceil((state.shiftIntervalMs - state.zoneShiftCounter) / 1000),
   );
   shiftCountdownEl.textContent = `${timeLeft}s`;
+  if (shiftTimerEl) {
+    shiftTimerEl.textContent = `${timeLeft}s`;
+  }
   if (shiftBannerEl) {
     shiftBannerEl.classList.toggle("urgent", timeLeft <= 5);
     shiftBannerEl.classList.remove("shifting");
@@ -438,6 +526,9 @@ function resetPlayers() {
 }
 
 function drawFromBag(player) {
+  if (state.gameMode === "chaos") {
+    return drawFromChaosBag(player);
+  }
   if (player.bag.length === 0) {
     player.bag = createBag();
   }
@@ -447,8 +538,9 @@ function drawFromBag(player) {
 function spawnPiece(player) {
   const type = player.next || drawFromBag(player);
   const matrix = SHAPES[type].map((row) => [...row]);
+  const spawnZone = player.spawnZone || player.zone;
   const startX =
-    Math.floor((player.zone.min + player.zone.max) / 2) -
+    Math.floor((spawnZone.min + spawnZone.max) / 2) -
     Math.floor(matrix[0].length / 2);
   const piece = {
     type,
@@ -497,11 +589,47 @@ function merge(player) {
         const boardY = player.piece.y + y;
         const boardX = player.piece.x + x;
         if (boardY >= 0) {
-          state.board[boardY][boardX] = player.piece.type;
+          const usePlayerColor = state.gameMode === "chaos";
+          state.board[boardY][boardX] = {
+            type: player.piece.type,
+            owner: player.id,
+            color: usePlayerColor ? player.color : null,
+          };
         }
       }
     });
   });
+}
+
+function applyBomb(player) {
+  const clearCells = [];
+  player.piece.matrix.forEach((row, y) => {
+    row.forEach((value, x) => {
+      if (!value) return;
+      const centerX = player.piece.x + x;
+      const centerY = player.piece.y + y;
+      const startX = centerX - 1;
+      const startY = centerY - 1;
+      for (let dy = 0; dy < 4; dy += 1) {
+        for (let dx = 0; dx < 4; dx += 1) {
+          const boardX = startX + dx;
+          const boardY = startY + dy;
+          if (
+            boardX >= 0 &&
+            boardX < state.cols &&
+            boardY >= 0 &&
+            boardY < state.rows
+          ) {
+            clearCells.push([boardY, boardX]);
+          }
+        }
+      }
+    });
+  });
+  clearCells.forEach(([boardY, boardX]) => {
+    state.board[boardY][boardX] = 0;
+  });
+  playSound("drop");
 }
 
 function sweepLines(player) {
@@ -557,12 +685,30 @@ function updateScoreboard() {
   }
 }
 
-function drawCell(x, y, color, alpha = 1) {
+function drawCell(x, y, color, alpha = 1, isBomb = false) {
+  const px = x * BLOCK;
+  const py = y * BLOCK;
+  if (isBomb) {
+    if (bombSprite?.complete && bombSprite.naturalWidth) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.drawImage(bombSprite, px + 1, py + 1, BLOCK - 2, BLOCK - 2);
+      ctx.restore();
+      return;
+    }
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.shadowColor = "rgba(255, 59, 59, 0.8)";
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = "rgba(255, 59, 59, 0.9)";
+    ctx.fillRect(px + 2, py + 2, BLOCK - 4, BLOCK - 4);
+    ctx.restore();
+  }
   ctx.globalAlpha = alpha;
   ctx.fillStyle = color;
-  ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+  ctx.fillRect(px, py, BLOCK, BLOCK);
   ctx.strokeStyle = "rgba(0,0,0,0.3)";
-  ctx.strokeRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+  ctx.strokeRect(px, py, BLOCK, BLOCK);
   ctx.globalAlpha = 1;
 }
 
@@ -571,9 +717,9 @@ function drawBoard() {
 
   for (let y = 0; y < state.rows; y += 1) {
     for (let x = 0; x < state.cols; x += 1) {
-      const inSharedZone = state.sharedZones.some(
-        (zone) => x >= zone.start && x <= zone.end,
-      );
+      const inSharedZone =
+        state.gameMode === "zoned" &&
+        state.sharedZones.some((zone) => x >= zone.start && x <= zone.end);
       if (inSharedZone) {
         drawCell(x, y, "#1c2346", 0.35);
       } else {
@@ -587,7 +733,14 @@ function drawBoard() {
   state.board.forEach((row, y) => {
     row.forEach((cell, x) => {
       if (cell) {
-        drawCell(x, y, COLORS[cell]);
+        if (typeof cell === "string") {
+          const isBomb = cell === "B";
+          drawCell(x, y, COLORS[cell] || "#ffffff", 1, isBomb);
+        } else {
+          const isBomb = cell.type === "B";
+          const color = cell.color || COLORS[cell.type] || "#ffffff";
+          drawCell(x, y, color, 1, isBomb);
+        }
       }
     });
   });
@@ -600,7 +753,12 @@ function drawBoard() {
         const drawX = player.piece.x + x;
         const drawY = player.piece.y + y;
         if (drawY >= 0) {
-          drawCell(drawX, drawY, COLORS[player.piece.type]);
+          const usePlayerColor = state.gameMode === "chaos";
+          const color = usePlayerColor
+            ? player.color
+            : COLORS[player.piece.type];
+          const isBomb = player.piece.type === "B";
+          drawCell(drawX, drawY, color, 1, isBomb);
         }
       });
     });
@@ -631,7 +789,7 @@ function drawShiftAnimationHighlight() {
   ctx.restore();
 }
 
-function drawPreview(ctxPreview, type) {
+function drawPreview(ctxPreview, type, color) {
   if (!type || !ctxPreview) return;
   ctxPreview.clearRect(0, 0, ctxPreview.canvas.width, ctxPreview.canvas.height);
   const matrix = SHAPES[type];
@@ -642,7 +800,7 @@ function drawPreview(ctxPreview, type) {
   matrix.forEach((row, y) => {
     row.forEach((value, x) => {
       if (value) {
-        ctxPreview.fillStyle = COLORS[type];
+        ctxPreview.fillStyle = color || COLORS[type] || "#ffffff";
         ctxPreview.fillRect(
           offsetX + x * block,
           offsetY + y * block,
@@ -656,6 +814,29 @@ function drawPreview(ctxPreview, type) {
           block,
           block,
         );
+        if (type === "B") {
+          if (bombSprite?.complete && bombSprite.naturalWidth) {
+            ctxPreview.drawImage(
+              bombSprite,
+              offsetX + x * block + 1,
+              offsetY + y * block + 1,
+              block - 2,
+              block - 2,
+            );
+          } else {
+            ctxPreview.save();
+            ctxPreview.shadowColor = "rgba(255, 59, 59, 0.9)";
+            ctxPreview.shadowBlur = 8;
+            ctxPreview.fillStyle = "rgba(255, 59, 59, 0.7)";
+            ctxPreview.fillRect(
+              offsetX + x * block + 2,
+              offsetY + y * block + 2,
+              block - 4,
+              block - 4,
+            );
+            ctxPreview.restore();
+          }
+        }
       }
     });
   });
@@ -664,7 +845,12 @@ function drawPreview(ctxPreview, type) {
 function drawUI() {
   state.players.forEach((player) => {
     if (player.ui?.nextCtx) {
-      drawPreview(player.ui.nextCtx, player.next);
+      const usePlayerColor = state.gameMode === "chaos";
+      drawPreview(
+        player.ui.nextCtx,
+        player.next,
+        usePlayerColor ? player.color : COLORS[player.next],
+      );
     }
   });
   updateScoreboard();
@@ -716,7 +902,11 @@ function rotate(player) {
 
 function lockPiece(player) {
   merge(player);
-  sweepLines(player);
+  if (player.piece?.type === "B") {
+    applyBomb(player);
+  } else {
+    sweepLines(player);
+  }
   spawnPiece(player);
   playSound("lock");
 }
@@ -809,22 +999,24 @@ function update(delta) {
       player.dropCounter = 0;
     }
   });
-  if (state.shiftAnimation.active) {
-    state.shiftAnimation.elapsed += delta;
-    if (state.shiftAnimation.elapsed >= state.shiftAnimation.duration) {
-      state.shiftAnimation.active = false;
-      const index = state.shiftAnimation.index;
-      if (index >= 0) {
-        state.sharedZones[index].start = state.shiftAnimation.to;
-        applySharedZones();
+  if (state.gameMode === "zoned") {
+    if (state.shiftAnimation.active) {
+      state.shiftAnimation.elapsed += delta;
+      if (state.shiftAnimation.elapsed >= state.shiftAnimation.duration) {
+        state.shiftAnimation.active = false;
+        const index = state.shiftAnimation.index;
+        if (index >= 0) {
+          state.sharedZones[index].start = state.shiftAnimation.to;
+          applySharedZones();
+        }
+        state.players.forEach((player) => fitPieceInZone(player));
       }
-      state.players.forEach((player) => fitPieceInZone(player));
-    }
-  } else {
-    state.zoneShiftCounter += delta;
-    if (state.zoneShiftCounter >= state.shiftIntervalMs) {
-      state.zoneShiftCounter = 0;
-      shiftSharedZone();
+    } else {
+      state.zoneShiftCounter += delta;
+      if (state.zoneShiftCounter >= state.shiftIntervalMs) {
+        state.zoneShiftCounter = 0;
+        shiftSharedZone();
+      }
     }
   }
   updateShiftTimerLabel();
@@ -1017,6 +1209,10 @@ function setup() {
   const initialPlayers = clampPlayerCount(
     playerCountSelect ? Number(playerCountSelect.value) : MIN_PLAYERS,
   );
+  if (gameModeSelect && GAME_MODES[gameModeSelect.value]) {
+    state.gameMode = gameModeSelect.value;
+  }
+  applyModeUI();
   buildLayout(initialPlayers);
   resetGame();
   const initialInterval = shiftIntervalInput
@@ -1046,6 +1242,23 @@ restartBtn.addEventListener("click", () => {
 soundToggle.addEventListener("change", (event) => {
   audio.enabled = event.target.checked;
 });
+
+if (gameModeSelect) {
+  gameModeSelect.addEventListener("change", (event) => {
+    const value = event.target.value;
+    state.gameMode = GAME_MODES[value] ? value : "zoned";
+    applyModeUI();
+    buildLayout(
+      clampPlayerCount(
+        playerCountSelect ? Number(playerCountSelect.value) : MIN_PLAYERS,
+      ),
+    );
+    resetGame();
+    overlayTitle.textContent = "Ready";
+    overlayText.textContent = "Press Start to begin.";
+    overlay.classList.remove("hidden");
+  });
+}
 
 if (playerCountSelect) {
   playerCountSelect.addEventListener("change", (event) => {

@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dual-Zone Tetris</title>
+    <title>Multi-Tetris</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="app">
       <header class="header">
         <div class="title">
-          <h1>Dual-Zone Tetris</h1>
-          <p>
+          <h1 id="gameTitle">Multi-Tetris</h1>
+          <p id="gameSubtitle">
             Up to 16 players share a common zone. Clear lines, avoid topping
             out.
           </p>
@@ -20,6 +20,13 @@
           <button id="startBtn">Start</button>
           <button id="pauseBtn" disabled>Pause</button>
           <button id="restartBtn" disabled>Restart</button>
+          <label class="select">
+            <span>Mode</span>
+            <select id="gameMode">
+              <option value="zoned">Zoned Shift</option>
+              <option value="chaos">Chaos Arena</option>
+            </select>
+          </label>
           <label class="select">
             <span>Players</span>
             <select id="playerCount">
@@ -72,8 +79,6 @@
               </div>
             </div>
           </section>
-
-          <section class="controls-doc" id="controlsDoc"></section>
         </div>
 
         <section class="players" id="playersPanel"></section>
