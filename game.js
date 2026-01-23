@@ -40,7 +40,7 @@ const SHIFT_ANIM_DURATION = 1200;
 const LEVEL_POINTS_STEP = 1000;
 const HARD_DROP_HOLD_MS = 1000;
 const MIN_PLAYERS = 2;
-const MAX_PLAYERS = 8;
+const MAX_PLAYERS = 16;
 
 const COLORS = {
   I: "#5dd7ff",
@@ -130,6 +130,14 @@ const KEY_GROUPS = [
   { left: "u", rotate: "i", right: "o" },
   { left: "y", rotate: "x", right: "c" },
   { left: "v", rotate: "b", right: "n" },
+  { left: "1", rotate: "2", right: "3" },
+  { left: "4", rotate: "5", right: "6" },
+  { left: "7", rotate: "8", right: "9" },
+  { left: "0", rotate: "-", right: "=" },
+  { left: "[", rotate: "]", right: "\\" },
+  { left: ";", rotate: "'", right: "Enter" },
+  { left: ",", rotate: ".", right: "/" },
+  { left: "`", rotate: "§", right: "\u00B4" },
 ];
 
 function initBoard() {
