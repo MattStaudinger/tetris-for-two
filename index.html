@@ -17,41 +17,9 @@
           </p>
         </div>
         <div class="controls">
-          <button id="startBtn">Start</button>
           <button id="pauseBtn" disabled>Pause</button>
-          <button id="restartBtn" disabled>Restart</button>
-          <label class="select">
-            <span>Mode</span>
-            <select id="gameMode">
-              <option value="zoned">Zoned Shift</option>
-              <option value="chaos">Chaos Arena</option>
-            </select>
-          </label>
-          <label class="select">
-            <span>Players</span>
-            <select id="playerCount">
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="8">8</option>
-              <option value="9">9</option>
-              <option value="10">10</option>
-              <option value="11">11</option>
-              <option value="12">12</option>
-              <option value="13">13</option>
-              <option value="14">14</option>
-              <option value="15">15</option>
-              <option value="16">16</option>
-            </select>
-          </label>
+          <button id="menuBtn" class="secondary">Menu</button>
           <button id="controlsBtn" class="secondary">Controls</button>
-          <label class="toggle">
-            <input type="checkbox" id="soundToggle" checked />
-            <span>Sound</span>
-          </label>
         </div>
       </header>
 
@@ -84,11 +52,24 @@
         <section class="players" id="playersPanel"></section>
       </main>
 
-      <footer class="footer">
+      <footer class="footer hidden">
         <div>Level: <span id="level">1</span></div>
         <div>Total Lines: <span id="totalLines">0</span></div>
         <div>Shared Zones: columns <span id="sharedZone">-</span></div>
-        <div class="shift-control">
+        <div class="start-level-control config-control">
+          <label>
+            Start level
+            <input
+              id="startLevel"
+              type="number"
+              min="1"
+              max="20"
+              step="1"
+              value="1"
+            />
+          </label>
+        </div>
+        <div class="shift-control config-control">
           <span>Next shift: <span id="shiftTimer">30s</span></span>
           <label>
             Interval
@@ -104,6 +85,71 @@
           </label>
         </div>
       </footer>
+    </div>
+
+    <div id="setupModal" class="modal setup-modal hidden" aria-hidden="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Game Setup</h2>
+        </div>
+        <div class="setup-grid">
+          <label class="setup-field">
+            <span>Player count</span>
+            <select id="setupPlayerCount">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+              <option value="13">13</option>
+              <option value="14">14</option>
+              <option value="15">15</option>
+              <option value="16">16</option>
+            </select>
+          </label>
+          <label class="setup-field">
+            <span>Start level</span>
+            <input
+              id="setupStartLevel"
+              type="number"
+              min="1"
+              max="20"
+              step="1"
+              value="1"
+            />
+          </label>
+          <label class="setup-field">
+            <span>Game mode</span>
+            <select id="setupGameMode">
+              <option value="zoned">Zoned Shift</option>
+              <option value="chaos">Chaos Arena</option>
+            </select>
+          </label>
+          <div class="setup-mode-description" id="setupModeDescription"></div>
+          <label class="setup-field" id="setupShiftField">
+            <span>Next shift interval (seconds)</span>
+            <input
+              id="setupShiftInterval"
+              type="number"
+              min="10"
+              max="180"
+              step="5"
+              value="30"
+            />
+          </label>
+        </div>
+        <div class="setup-actions">
+          <button id="setupResumeBtn" class="secondary">Resume</button>
+          <button id="setupApplyBtn" class="start-button">Start</button>
+          <button id="setupControlsBtn" class="secondary">View controls</button>
+        </div>
+      </div>
     </div>
 
     <div id="controlsModal" class="modal hidden" aria-hidden="true">

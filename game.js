@@ -1,9 +1,8 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const startBtn = document.getElementById("startBtn");
 const pauseBtn = document.getElementById("pauseBtn");
-const restartBtn = document.getElementById("restartBtn");
+const menuBtn = document.getElementById("menuBtn");
 const soundToggle = document.getElementById("soundToggle");
 const gameModeSelect = document.getElementById("gameMode");
 const playerCountSelect = document.getElementById("playerCount");
@@ -11,6 +10,16 @@ const controlsBtn = document.getElementById("controlsBtn");
 const controlsModal = document.getElementById("controlsModal");
 const controlsClose = document.getElementById("controlsClose");
 const controlsList = document.getElementById("controlsList");
+const setupModal = document.getElementById("setupModal");
+const setupApplyBtn = document.getElementById("setupApplyBtn");
+const setupResumeBtn = document.getElementById("setupResumeBtn");
+const setupControlsBtn = document.getElementById("setupControlsBtn");
+const setupPlayerCount = document.getElementById("setupPlayerCount");
+const setupStartLevel = document.getElementById("setupStartLevel");
+const setupGameMode = document.getElementById("setupGameMode");
+const setupShiftInterval = document.getElementById("setupShiftInterval");
+const setupShiftField = document.getElementById("setupShiftField");
+const setupModeDescription = document.getElementById("setupModeDescription");
 const playersPanel = document.getElementById("playersPanel");
 const nextTray = document.getElementById("nextTray");
 const gameColumn = document.querySelector(".game-column");
@@ -26,6 +35,7 @@ const totalLinesEl = document.getElementById("totalLines");
 const sharedZoneEl = document.getElementById("sharedZone");
 const shiftTimerEl = document.getElementById("shiftTimer");
 const shiftIntervalInput = document.getElementById("shiftInterval");
+const startLevelInput = document.getElementById("startLevel");
 const shiftBannerEl = document.getElementById("shiftBanner");
 const shiftCountdownEl = document.getElementById("shiftCountdown");
 const pointsToLevelEl = document.getElementById("pointsToLevel");
@@ -43,6 +53,7 @@ const SHIFT_ANIM_DURATION = 1200;
 const LEVEL_POINTS_STEP = 1000;
 const HARD_DROP_HOLD_MS = 1000;
 const BOMB_CLEAR_DELAY_MS = 1000;
+const MAX_START_LEVEL = 20;
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 16;
 
@@ -136,6 +147,7 @@ const state = {
   totalLines: 0,
   totalScore: 0,
   level: 1,
+  startLevel: 1,
   cols: 0,
   rows: ROWS,
   sharedZones: [],
@@ -203,7 +215,7 @@ function drawFromChaosBag(player) {
   if (player.bag.length === 0) {
     player.bag = createBag();
   }
-  if (Math.random() < 0.5) {
+  if (Math.random() < 0.1) {
     return "B";
   }
   return player.bag.pop();
@@ -270,16 +282,7 @@ function buildPlayerPanel(index, config) {
   linesRow.append("Lines: ", linesValue);
   stats.append(scoreRow, linesRow);
 
-  const keys = document.createElement("div");
-  keys.className = "keys";
-  keys.innerHTML = `
-    <h3>Keys</h3>
-    <p>Move: ${config.keys.left.toUpperCase()} / ${config.keys.right.toUpperCase()}</p>
-    <p>Rotate: ${config.keys.rotate.toUpperCase()}</p>
-    <p>Hard drop: hold ${config.keys.rotate.toUpperCase()}</p>
-  `;
-
-  panel.append(stats, keys);
+  panel.append(stats);
   playersPanel.appendChild(panel);
 
   return {
@@ -504,6 +507,92 @@ function setShiftInterval(seconds) {
   updateShiftTimerLabel();
 }
 
+function clampStartLevel(level) {
+  return Math.max(1, Math.min(MAX_START_LEVEL, level));
+}
+
+function setStartLevel(level) {
+  const clamped = clampStartLevel(level);
+  state.startLevel = clamped;
+  if (startLevelInput) {
+    startLevelInput.value = `${clamped}`;
+  }
+}
+
+function updateSetupModeDescription(mode) {
+  if (!setupModeDescription) return;
+  const details = GAME_MODES[mode] || GAME_MODES.zoned;
+  setupModeDescription.textContent = details.description;
+}
+
+function updateSetupShiftVisibility(mode) {
+  if (!setupShiftField) return;
+  setupShiftField.style.display = mode === "zoned" ? "grid" : "none";
+}
+
+function updateSetupResumeVisibility() {
+  if (!setupResumeBtn) return;
+  setupResumeBtn.style.display = state.running ? "block" : "none";
+}
+
+function updateControlsPreview(playerCount) {
+  const count = clampPlayerCount(playerCount);
+  const configs = buildPlayerConfigs(count);
+  buildControlsDocs(configs);
+}
+
+function openSetupModal() {
+  if (!setupModal) return;
+  document.body.classList.add("setup-open");
+  setupModal.classList.remove("hidden");
+  setupModal.setAttribute("aria-hidden", "false");
+  if (setupApplyBtn) setupApplyBtn.disabled = false;
+  if (pauseBtn) pauseBtn.disabled = true;
+  updateSetupResumeVisibility();
+}
+
+function closeSetupModal() {
+  if (!setupModal) return;
+  document.body.classList.remove("setup-open");
+  setupModal.classList.add("hidden");
+  setupModal.setAttribute("aria-hidden", "true");
+  if (pauseBtn) pauseBtn.disabled = false;
+}
+
+function applySetupSelections() {
+  const selectedPlayers = setupPlayerCount
+    ? Number(setupPlayerCount.value)
+    : MIN_PLAYERS;
+  const selectedMode = setupGameMode?.value || "zoned";
+  const selectedStartLevel = setupStartLevel
+    ? Number(setupStartLevel.value)
+    : 1;
+  const selectedShiftInterval = setupShiftInterval
+    ? Number(setupShiftInterval.value)
+    : SHIFT_DEFAULT_MS / 1000;
+
+  if (gameModeSelect) {
+    gameModeSelect.value = selectedMode;
+  }
+  if (playerCountSelect) {
+    playerCountSelect.value = `${selectedPlayers}`;
+  }
+  state.gameMode = GAME_MODES[selectedMode] ? selectedMode : "zoned";
+  applyModeUI();
+  buildLayout(clampPlayerCount(selectedPlayers));
+  setStartLevel(selectedStartLevel);
+  setShiftInterval(selectedShiftInterval);
+  resetGame();
+  overlayTitle.textContent = "Ready";
+  overlayText.textContent = "Press Start to begin.";
+  overlay.classList.remove("hidden");
+}
+
+function getEffectiveScore() {
+  const baseScore = Math.max(0, state.startLevel - 1) * LEVEL_POINTS_STEP;
+  return state.totalScore + baseScore;
+}
+
 function resetPlayers() {
   state.players.forEach((player) => {
     player.score = 0;
@@ -665,7 +754,8 @@ function updateLevel() {
     0,
   );
   state.totalScore = totalScore;
-  const newLevel = Math.floor(state.totalScore / LEVEL_POINTS_STEP) + 1;
+  const effectiveScore = getEffectiveScore();
+  const newLevel = Math.floor(effectiveScore / LEVEL_POINTS_STEP) + 1;
   if (newLevel !== state.level) {
     state.level = newLevel;
     state.players.forEach((player) => {
@@ -679,6 +769,7 @@ function updateScoreboard() {
     (sum, player) => sum + player.score,
     0,
   );
+  const effectiveScore = getEffectiveScore();
   state.players.forEach((player) => {
     if (player.ui?.scoreEl) player.ui.scoreEl.textContent = player.score;
     if (player.ui?.linesEl) player.ui.linesEl.textContent = player.lines;
@@ -687,7 +778,7 @@ function updateScoreboard() {
   totalLinesEl.textContent = state.totalLines;
   if (pointsToLevelEl) {
     const nextLevelScore = state.level * LEVEL_POINTS_STEP;
-    const remaining = Math.max(0, nextLevelScore - state.totalScore);
+    const remaining = Math.max(0, nextLevelScore - effectiveScore);
     pointsToLevelEl.textContent = `${remaining}`;
   }
 }
@@ -1092,7 +1183,6 @@ function startGame() {
   state.lastTime = performance.now();
   overlay.classList.add("hidden");
   pauseBtn.disabled = false;
-  restartBtn.disabled = false;
   ensureAudio();
   playSound("start");
   requestAnimationFrame(loop);
@@ -1111,7 +1201,7 @@ function resetGame() {
   initBoard();
   state.totalLines = 0;
   state.totalScore = 0;
-  state.level = 1;
+  state.level = state.startLevel;
   state.zoneShiftCounter = 0;
   state.shiftAnimation = {
     active: false,
@@ -1123,6 +1213,9 @@ function resetGame() {
   };
   state.bombEffects = [];
   resetPlayers();
+  state.players.forEach((player) => {
+    player.dropInterval = Math.max(120, 800 - (state.level - 1) * 60);
+  });
   drawBoard();
   drawUI();
   updateShiftTimerLabel();
@@ -1267,34 +1360,68 @@ function setup() {
   }
   applyModeUI();
   buildLayout(initialPlayers);
-  resetGame();
+  const initialStartLevel = startLevelInput
+    ? Number(startLevelInput.value || 1)
+    : 1;
+  setStartLevel(Number.isFinite(initialStartLevel) ? initialStartLevel : 1);
   const initialInterval = shiftIntervalInput
     ? Number(shiftIntervalInput.value || SHIFT_DEFAULT_MS / 1000)
     : SHIFT_DEFAULT_MS / 1000;
   setShiftInterval(Number.isFinite(initialInterval) ? initialInterval : 30);
+  if (setupPlayerCount) {
+    setupPlayerCount.value = `${initialPlayers}`;
+  }
+  if (setupStartLevel) {
+    setupStartLevel.value = `${state.startLevel}`;
+  }
+  if (setupGameMode) {
+    setupGameMode.value = state.gameMode;
+  }
+  if (setupShiftInterval) {
+    setupShiftInterval.value = `${state.shiftIntervalMs / 1000}`;
+  }
+  updateSetupModeDescription(state.gameMode);
+  updateSetupShiftVisibility(state.gameMode);
+  openSetupModal();
   overlayTitle.textContent = "Ready";
   overlayText.textContent = "Press Start to begin.";
   overlay.classList.remove("hidden");
   updateScoreboard();
 }
 
-startBtn.addEventListener("click", () => {
-  if (!state.running) {
-    startGame();
-  }
-});
-
 pauseBtn.addEventListener("click", () => {
   pauseGame();
 });
 
-restartBtn.addEventListener("click", () => {
-  restartGame();
-});
+if (menuBtn) {
+  menuBtn.addEventListener("click", () => {
+    if (state.running && !state.paused) {
+      pauseGame();
+    }
+    overlay.classList.add("hidden");
+    if (setupPlayerCount) {
+      setupPlayerCount.value = `${state.players.length}`;
+    }
+    if (setupStartLevel) {
+      setupStartLevel.value = `${state.startLevel}`;
+    }
+    if (setupGameMode) {
+      setupGameMode.value = state.gameMode;
+    }
+    if (setupShiftInterval) {
+      setupShiftInterval.value = `${state.shiftIntervalMs / 1000}`;
+    }
+    updateSetupModeDescription(state.gameMode);
+    updateSetupShiftVisibility(state.gameMode);
+    openSetupModal();
+  });
+}
 
-soundToggle.addEventListener("change", (event) => {
-  audio.enabled = event.target.checked;
-});
+if (soundToggle) {
+  soundToggle.addEventListener("change", (event) => {
+    audio.enabled = event.target.checked;
+  });
+}
 
 if (gameModeSelect) {
   gameModeSelect.addEventListener("change", (event) => {
@@ -1346,11 +1473,69 @@ if (controlsBtn && controlsModal && controlsClose) {
   });
 }
 
+if (setupControlsBtn && controlsModal) {
+  setupControlsBtn.addEventListener("click", () => {
+    controlsModal.classList.remove("hidden");
+    controlsModal.setAttribute("aria-hidden", "false");
+  });
+}
+
+if (setupResumeBtn) {
+  setupResumeBtn.addEventListener("click", () => {
+    closeSetupModal();
+    if (state.paused) {
+      pauseGame();
+    }
+  });
+}
+
+if (setupGameMode) {
+  setupGameMode.addEventListener("change", (event) => {
+    const mode = event.target.value;
+    updateSetupModeDescription(mode);
+    updateSetupShiftVisibility(mode);
+  });
+}
+
+if (setupPlayerCount) {
+  setupPlayerCount.addEventListener("change", (event) => {
+    const value = Number(event.target.value);
+    if (Number.isFinite(value)) {
+      updateControlsPreview(value);
+    }
+  });
+}
+
+if (setupApplyBtn) {
+  setupApplyBtn.addEventListener("click", () => {
+    applySetupSelections();
+    closeSetupModal();
+    if (state.running) {
+      restartGame();
+    } else {
+      startGame();
+    }
+  });
+}
+
 if (shiftIntervalInput) {
   shiftIntervalInput.addEventListener("change", (event) => {
     const value = Number(event.target.value);
     if (Number.isFinite(value)) {
       setShiftInterval(value);
+    }
+  });
+}
+
+if (startLevelInput) {
+  startLevelInput.addEventListener("change", (event) => {
+    const value = Number(event.target.value);
+    if (Number.isFinite(value)) {
+      setStartLevel(value);
+      resetGame();
+      overlayTitle.textContent = "Ready";
+      overlayText.textContent = "Press Start to begin.";
+      overlay.classList.remove("hidden");
     }
   });
 }

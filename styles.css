@@ -127,7 +127,6 @@ button:not(:disabled):hover {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 360px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
@@ -152,15 +151,6 @@ button:not(:disabled):hover {
   background: #0f1326;
   border-radius: 10px;
   border: 1px solid #2b3150;
-}
-
-.keys {
-  font-size: 0.9rem;
-  color: #b9bed1;
-}
-
-.keys h3 {
-  margin: 0 0 6px;
 }
 
 .game {
@@ -319,10 +309,6 @@ button:not(:disabled):hover {
   width: 100%;
 }
 
-.players .panel {
-  min-height: 320px;
-}
-
 .modal {
   position: fixed;
   inset: 0;
@@ -338,11 +324,83 @@ button:not(:disabled):hover {
   display: none;
 }
 
+.setup-modal .modal-content {
+  display: grid;
+  gap: 16px;
+}
+
+.setup-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+}
+
+.setup-field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #c9d0ea;
+}
+
+.setup-field select,
+.setup-field input {
+  background: #0f1326;
+  border: 1px solid #2b3150;
+  color: #eef1f6;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-weight: 600;
+}
+
+.setup-mode-description {
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #b7c0e1;
+  font-size: 0.9rem;
+}
+
+.setup-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.setup-actions .secondary {
+  min-width: 120px;
+}
+
+.start-button {
+  background: linear-gradient(135deg, #4a5bff, #6d7bff);
+  padding: 12px 22px;
+  border-radius: 14px;
+  font-size: 1rem;
+  box-shadow: 0 10px 24px rgba(88, 104, 255, 0.35);
+}
+
+.start-button:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 14px 30px rgba(88, 104, 255, 0.45);
+}
+
+.footer.hidden {
+  display: none;
+}
+
+body.setup-open .config-control {
+  display: none;
+}
+
+body:not(.setup-open) .title {
+  display: none;
+}
+
 .modal-content {
   background: #121733;
   border-radius: 16px;
   padding: 20px;
-  width: min(960px, 100%);
+  width: min(450px, 100%);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(85, 100, 180, 0.4);
   max-height: 80vh;
@@ -352,7 +410,7 @@ button:not(:disabled):hover {
 .modal-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
 }
 
@@ -413,6 +471,25 @@ button:not(:disabled):hover {
   color: #d4d9ea;
 }
 
+.start-level-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(21, 25, 48, 0.7);
+  border: 1px solid rgba(77, 90, 160, 0.35);
+  color: #d4d9ea;
+}
+
+.start-level-control label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #b7bdd5;
+}
+
 .shift-control label {
   display: flex;
   align-items: center;
@@ -432,8 +509,13 @@ button:not(:disabled):hover {
   text-align: center;
 }
 
-@media (max-width: 1100px) {
-  .panel {
-    min-height: auto;
-  }
+.start-level-control input {
+  width: 64px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid #2b3150;
+  background: #0f1326;
+  color: #eef1f6;
+  font-weight: 600;
+  text-align: center;
 }
