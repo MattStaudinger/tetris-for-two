@@ -42,6 +42,7 @@ const SHIFT_DEFAULT_MS = 30000;
 const SHIFT_ANIM_DURATION = 1200;
 const LEVEL_POINTS_STEP = 1000;
 const HARD_DROP_HOLD_MS = 1000;
+const BOMB_CLEAR_DELAY_MS = 1000;
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 16;
 
@@ -148,6 +149,7 @@ const state = {
     elapsed: 0,
     duration: SHIFT_ANIM_DURATION,
   },
+  bombEffects: [],
 };
 const KEY_GROUPS = [
   { left: "a", rotate: "s", right: "d" },
@@ -201,7 +203,7 @@ function drawFromChaosBag(player) {
   if (player.bag.length === 0) {
     player.bag = createBag();
   }
-  if (Math.random() < 0.08) {
+  if (Math.random() < 0.5) {
     return "B";
   }
   return player.bag.pop();
@@ -602,7 +604,7 @@ function merge(player) {
 }
 
 function applyBomb(player) {
-  const clearCells = [];
+  const clearCells = new Map();
   player.piece.matrix.forEach((row, y) => {
     row.forEach((value, x) => {
       if (!value) return;
@@ -620,16 +622,21 @@ function applyBomb(player) {
             boardY >= 0 &&
             boardY < state.rows
           ) {
-            clearCells.push([boardY, boardX]);
+            if (state.board[boardY][boardX]) {
+              clearCells.set(`${boardY}:${boardX}`, [boardY, boardX]);
+            }
           }
         }
       }
     });
   });
-  clearCells.forEach(([boardY, boardX]) => {
-    state.board[boardY][boardX] = 0;
-  });
-  playSound("drop");
+  if (clearCells.size > 0) {
+    state.bombEffects.push({
+      cells: Array.from(clearCells.values()),
+      remaining: BOMB_CLEAR_DELAY_MS,
+    });
+    playSound("drop");
+  }
 }
 
 function sweepLines(player) {
@@ -763,6 +770,8 @@ function drawBoard() {
       });
     });
   });
+
+  drawBombEffects();
 }
 
 function drawShiftAnimationHighlight() {
@@ -787,6 +796,31 @@ function drawShiftAnimationHighlight() {
   ctx.lineWidth = 3;
   ctx.strokeRect(x + 1.5, 1.5, width - 3, canvas.height - 3);
   ctx.restore();
+}
+
+function drawBombWarningCell(x, y, intensity = 1) {
+  const px = x * BLOCK;
+  const py = y * BLOCK;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.shadowColor = `rgba(255, 255, 255, ${0.6 + intensity * 0.4})`;
+  ctx.shadowBlur = 14 + intensity * 6;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.75 + intensity * 0.25})`;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(px + 1, py + 1, BLOCK - 2, BLOCK - 2);
+  ctx.restore();
+}
+
+function drawBombEffects() {
+  if (!state.bombEffects.length) return;
+  state.bombEffects.forEach((effect) => {
+    const progress = 1 - Math.max(0, effect.remaining) / BOMB_CLEAR_DELAY_MS;
+    const pulse = 0.6 + Math.sin(progress * Math.PI * 2) * 0.4;
+    effect.cells.forEach(([y, x]) => {
+      if (!state.board[y][x]) return;
+      drawBombWarningCell(x, y, pulse);
+    });
+  });
 }
 
 function drawPreview(ctxPreview, type, color) {
@@ -991,7 +1025,21 @@ function shiftSharedZone() {
   }
 }
 
+function updateBombEffects(delta) {
+  if (!state.bombEffects.length) return;
+  state.bombEffects = state.bombEffects.filter((effect) => {
+    effect.remaining -= delta;
+    if (effect.remaining > 0) return true;
+    effect.cells.forEach(([boardY, boardX]) => {
+      state.board[boardY][boardX] = 0;
+    });
+    playSound("boom");
+    return false;
+  });
+}
+
 function update(delta) {
+  updateBombEffects(delta);
   state.players.forEach((player) => {
     player.dropCounter += delta;
     if (player.dropCounter >= player.dropInterval) {
@@ -1073,6 +1121,7 @@ function resetGame() {
     elapsed: 0,
     duration: SHIFT_ANIM_DURATION,
   };
+  state.bombEffects = [];
   resetPlayers();
   drawBoard();
   drawUI();
@@ -1129,6 +1178,10 @@ function playSound(name) {
       break;
     case "drop":
       playTone(120, 0.12, "sawtooth", 0.07);
+      break;
+    case "boom":
+      playTone(90, 0.18, "sawtooth", 0.1);
+      playTone(140, 0.12, "square", 0.06);
       break;
     case "lock":
       playTone(180, 0.08, "square", 0.04);
